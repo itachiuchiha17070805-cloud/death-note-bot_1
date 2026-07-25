@@ -80,7 +80,7 @@ def assign_roles(players_dict):
             roles[p_id] = "Tinch Aholi"
 
     return roles
-# ================= KUN SIKLI =================
+    # ================= KUN SIKLI =================
 def start_day(chat_id):
     game = games.get(chat_id)
     if not game or game.get('status') != 'night':
@@ -90,7 +90,6 @@ def start_day(chat_id):
     game['votes'] = {}
     targets = game.get('pending_kills', [])
     protected_id = game.get('protected_player')
-    blocked_id = game.get('blocked_player')
 
     try:
         bot.send_animation(chat_id, GIF_DAY_START, caption="☀️ **Shahar ustiga quyosh chiqdi! Yangi kun boshlandi.**")
@@ -101,11 +100,8 @@ def start_day(chat_id):
         bot.send_message(chat_id, game['ryuk_event'])
         game['ryuk_event'] = None
 
-    kira_id = [p for p, r in game['roles'].items() if r == "Kira"]
-    is_kira_blocked = (kira_id and kira_id[0] == blocked_id)
-
     dead_this_night = []
-    if not is_kira_blocked and targets:
+    if targets:
         for target_id in targets:
             # SHINIGAMI OLMASI TEKSHIRUVI (1 martalik himoya)
             target_prof = get_user_profile(target_id)
@@ -139,6 +135,9 @@ def start_day(chat_id):
     if not dead_this_night:
         bot.send_message(chat_id, "🛡 **Ajoyib xabar!** Bu kecha shahar tinch bo'ldi, hech kim halok bo'lmadi.")
 
+    kira_id = [p for p, r in game['roles'].items() if r == "Kira"]
+    
+    # KIRA O'LGANDA TERU MIKAMI O'RNINI EGALLASHI
     if kira_id and kira_id[0] not in game['alive']:
         mikami_id = [p for p, r in game['roles'].items() if r == "Teru Mikami" and p in game['alive']]
         if mikami_id and not game.get('mikami_used', False):
@@ -150,7 +149,7 @@ def start_day(chat_id):
             except Exception:
                 pass
             try:
-                bot.send_message(mikami_id[0], "📜 **Siz — Teru Mikami edingiz.** Asl Kira yo'q qilindi, endi O'lim Daftari sizga o'tdi. Siz endigi **yangi Kira**siz — tungi hujum imkoniyatingiz keyingi kechadan boshlanadi!")
+                bot.send_message(mikami_id[0], "📜 **Siz — Teru Mikami edingiz.** Asl Kira yo'q qilindi, endi O'lim Daftari va Kiraning barcha vakolatlari sizga o'tdi! Siz yangi **Kira**siz!")
             except Exception:
                 pass
         else:
@@ -171,17 +170,18 @@ def start_day(chat_id):
             games.pop(chat_id, None)
             return
 
-    if len(game['alive']) <= 2:
+    # KIRA G'ALABASI SHARTI (Kira tirik va tiriklar 2 kishi yoki undan kam qolsa)
+    if kira_id and kira_id[0] in game['alive'] and len(game['alive']) <= 2:
         try:
             bot.send_video(chat_id, VID_KIRA_WIN, caption="📓 **G'ALABA VA MVP!** Kira barcha raqiblarini yo'q qildi!\n🏆 **MVP Kira** ga **+200 Coin** taqdim etildi!")
         except Exception:
             bot.send_message(chat_id, "📓 **G'ALABA VA MVP!** Kira barcha raqiblarini yo'q qildi!\n🏆 **MVP Kira** ga **+200 Coin** taqdim etildi!")
-        if kira_id:
-            prof = get_user_profile(kira_id[0])
-            prof['coins'] += 200
-            prof['wins'] += 1
-            if "📓 Haqiqiy Kira" not in prof['achievements']:
-                prof['achievements'].append("📓 Haqiqiy Kira")
+        
+        prof = get_user_profile(kira_id[0])
+        prof['coins'] += 200
+        prof['wins'] += 1
+        if "📓 Haqiqiy Kira" not in prof['achievements']:
+            prof['achievements'].append("📓 Haqiqiy Kira")
         games.pop(chat_id, None)
         return
 
@@ -240,6 +240,7 @@ def start_night(chat_id):
         role = game['roles'].get(player_id)
         prof = get_user_profile(player_id)
 
+        # ROLLARNING ABILITY TUGMALARI
         if role == "Kira":
             max_kills = 2 if "📓 Kira Daftari" in prof['inventory'] else 1
             kb = types.InlineKeyboardMarkup(row_width=1)
@@ -255,8 +256,8 @@ def start_night(chat_id):
                 kb = types.InlineKeyboardMarkup(row_width=1)
                 for t_id in alive_players:
                     if t_id != player_id:
-                        kb.add(types.InlineKeyboardButton(f"🎭 {game['players'][t_id]} haqida soxta fakt", callback_data=f"fakefact_{chat_id}_{t_id}"))
-                try: bot.send_message(player_id, f"🎭 **Kiyomi Takada:** Guruhni chalg'itish uchun kimga tuxmat qilasiz? (Qolgan limit: {uses})", reply_markup=kb)
+                        kb.add(types.InlineKeyboardButton(f"🎭 {game['players'][t_id]} haqida fakt e'lon qilish", callback_data=f"fakefact_{chat_id}_{t_id}"))
+                try: bot.send_message(player_id, f"🎭 **Kiyomi Takada:** Guruhga kim haqida fakt yuborasiz? (Qolgan limit: {uses})", reply_markup=kb)
                 except Exception: pass
 
         elif role == "Naomi Misora":
@@ -266,7 +267,7 @@ def start_night(chat_id):
                 for t_id in alive_players:
                     if t_id != player_id:
                         kb.add(types.InlineKeyboardButton(f"🛑 {game['players'][t_id]}", callback_data=f"block_{chat_id}_{t_id}"))
-                try: bot.send_message(player_id, "🛑 **Naomi:** Kimni bloklaysiz?", reply_markup=kb)
+                try: bot.send_message(player_id, "🛑 **Naomi:** Kimni bloklaysiz? (Bloklangan odam bu kecha ability ishlata olmaydi)", reply_markup=kb)
                 except Exception: pass
 
         elif role == "L" or (role == "Near" and not game.get('l_alive', True)):
@@ -296,12 +297,17 @@ def start_night(chat_id):
                 except Exception: pass
 
         elif role == "Mello":
-            if not game['mello_used'].get(player_id, False):
+            cd = game['mello_cd'].get(player_id, 0)
+            if cd > 0:
+                game['mello_cd'][player_id] -= 1
+                try: bot.send_message(player_id, f"⏳ **Mello:** Noto'g'ri hujum qilganingiz sababli bu kecha qobiliyat ishlatolmaysiz! (Qolgan CD: {game['mello_cd'][player_id]} kecha)")
+                except Exception: pass
+            else:
                 kb = types.InlineKeyboardMarkup(row_width=1)
                 for t_id in alive_players:
                     if t_id != player_id:
                         kb.add(types.InlineKeyboardButton(f"🔥 {game['players'][t_id]}", callback_data=f"melloattack_{chat_id}_{t_id}"))
-                try: bot.send_message(player_id, "🔥 **Mello:** Tavakkal qilib kimga xujum qilasiz? (Faqat 1 marta, butun o'yin davomida)", reply_markup=kb)
+                try: bot.send_message(player_id, "🔥 **Mello:** Tavakkal qilib kimga xujum qilasiz?", reply_markup=kb)
                 except Exception: pass
 
         elif role == "Ryuk":
@@ -342,7 +348,7 @@ def start_game_logic(chat_id):
     game['takada_uses'] = {}
     game['aizawa_shots'] = {}
     game['misa_uses'] = {}
-    game['mello_used'] = {}
+    game['mello_cd'] = {}
     game['mikami_used'] = False
     game['secret_msgs_used'] = 0
     game['l_alive'] = True
@@ -363,13 +369,13 @@ def start_game_logic(chat_id):
         if role == "Kiyomi Takada": game['takada_uses'][p_id] = 3
         if role == "Aizawa": game['aizawa_shots'][p_id] = 0
         if role == "Misa": game['misa_uses'][p_id] = 3
-        if role == "Mello": game['mello_used'][p_id] = False
+        if role == "Mello": game['mello_cd'][p_id] = 0
         try: bot.send_message(p_id, f"🎭 Sizning rolingiz: **{role}**\nSizning Unvoningiz: {prof['rank']}")
         except Exception: pass
 
     time.sleep(2)
     start_night(chat_id)
-            # ================= BUYRUQLAR (COMMANDS) =================
+    # ================= BUYRUQLAR (COMMANDS) =================
 @bot.message_handler(commands=['start'])
 def start_cmd(message):
     bot.reply_to(message, "👋 **Death Note Botiga xush kelibsiz!**\n\n🎮 `/create` — O'yin Yaratish\n🛑 `/stop` — O'yinni Bekor Qilish\n⏳ `/extend` — Kutish Vaqtini Uzaytirish\n👤 `/profile` — Profil va Unvon\n🛒 `/shop` — Do'kon (1000 Coin)\n🏆 `/top` — Top-10 Reyting\n🎁 `/daily` — Kunlik Bonus\n🔒 `/maxfiy` — (Faqat Kira/Misa, shaxsiy chatda) Maxfiy xabar")
@@ -518,6 +524,14 @@ def callback_inline(call):
     data = call.data.split("_")
     action = data[0]
 
+    # NAOMI BLOKLANGAN O'YINCHILAR TEKSHIRUVI
+    if action in ["target", "checkl", "protect", "misaeyes", "melloattack", "block", "fakefact"]:
+        c_id = int(data[1])
+        game = games.get(c_id)
+        if game and game.get('blocked_player') == call.from_user.id:
+            bot.answer_callback_query(call.id, "🛑 Naomi Misora sizni bu kecha blokladi! Qobiliyatingiz ishlamaydi.", show_alert=True)
+            return
+
     if action == "vote":
         c_id, target_id = int(data[1]), int(data[2])
         game = games.get(c_id)
@@ -552,28 +566,29 @@ def callback_inline(call):
             if game['misa_uses'].get(call.from_user.id, 0) > 0:
                 game['misa_uses'][call.from_user.id] -= 1
             elif "👁 Shinigami Ko'zlari" in prof['inventory']:
-                prof['inventory'].remove("👁 Shinigami Ko'zlari") # 1 MARTALIK BUYUM ISHLATILDI
+                prof['inventory'].remove("👁 Shinigami Ko'zlari")
             t_role = game['roles'].get(target_id, "Noma'lum")
             t_name = game['players'].get(target_id, "Noma'lum")
             bot.answer_callback_query(call.id, f"👁 {t_name} — roli: {t_role}", show_alert=True)
 
+    # 💥 MELLO HUJUM MEXANIZMI (Begunohni otsa o'lmaydi, lekin 2 kecha CD tushadi)
     elif action == "melloattack":
         c_id, target_id = int(data[1]), int(data[2])
         game = games.get(c_id)
-        if game and not game['mello_used'].get(call.from_user.id, False):
-            game['mello_used'][call.from_user.id] = True
+        if game:
             if target_id in game['alive']:
-                game['alive'].remove(target_id)
                 t_name = game['players'].get(target_id, "Noma'lum")
                 t_role = game['roles'].get(target_id, "Noma'lum")
                 if t_role == "Kira":
+                    game['alive'].remove(target_id)
                     bot.send_message(c_id, f"🔥 **Mello** tavakkal qildi va {t_name}ga xujum qildi — u aynan **KIRA** edi! 🎯")
                     prof = get_user_profile(call.from_user.id)
                     prof['coins'] += 150
                     if "🔥 Xavfli O'yinchi" not in prof['achievements']:
                         prof['achievements'].append("🔥 Xavfli O'yinchi")
                 else:
-                    bot.send_message(c_id, f"🔥 **Mello** tavakkal qildi va begunoh {t_name} ({t_role})ga xujum qildi...")
+                    game['mello_cd'][call.from_user.id] = 2
+                    bot.send_message(c_id, f"🔥 **Mello** tavakkal qildi va begunoh {t_name}ga xujum qildi... Omadsizlik! Mello 2 kecha qobiliyat ishlatolmaydi.")
             bot.answer_callback_query(call.id, "Hujum amalga oshirildi!")
 
     elif action == "block":
@@ -595,20 +610,32 @@ def callback_inline(call):
         else:
             bot.answer_callback_query(call.id, "❌ 1000 Coin yetarli emas!", show_alert=True)
 
+    # 🎭 KIYOMI TAKADA (🟢 Haqiqiy, 🟡 Qisman haqiqiy, 🔴 Yolg'on faktlar)
     elif action == "fakefact":
         c_id, target_id = int(data[1]), int(data[2])
         game = games.get(c_id)
         if game:
             game['takada_uses'][call.from_user.id] -= 1
             t_name = game['players'][target_id]
-            facts = [
-                f"🚨 **SHUBHALI FAKT:** Men {t_name} tunda O'lim Daftari ushlab turgganini ko'rdim!",
-                f"🚨 **SHUBHALI FAKT:** {t_name} kecha Soichiro bilan yashirincha gaplashayotgan edi, u L bo'lishi mumkin!",
-                f"🚨 **SHUBHALI FAKT:** {t_name}ning harakatlari mutlaqo Kiraga o'xshaydi, uni darhol otish kerak!"
-            ]
-            bot.send_message(c_id, random.choice(facts))
-            bot.answer_callback_query(call.id, "Tuxmat guruhga tashlandi!")
+            t_role = game['roles'].get(target_id, "Tinch Aholi")
+            
+            fact_types = ["real", "partial", "fake"]
+            chosen_type = random.choice(fact_types)
 
+            if chosen_type == "real":
+                msg = f"🟢 **FAKT:** {t_name} aynan **{t_role}** rolida o'ynamoqda!"
+            elif chosen_type == "partial":
+                group_type = "Yovuzlar (Kira/Misa/Mikami)" if t_role in ["Kira", "Misa", "Teru Mikami"] else "Tergovchilar / Tinch Aholi"
+                msg = f"🟡 **FAKT:** {t_name} **{group_type}** jamoasiga mansub!"
+            else:
+                fake_roles = ["Kira", "L", "Soichiro Yagami", "Aizawa", "Misa"]
+                if t_role in fake_roles: fake_roles.remove(t_role)
+                msg = f"🔴 **FAKT:** {t_name} tunda maxfiy harakat qildi, u **{random.choice(fake_roles)}** bo'lishi mumkin!"
+
+            bot.send_message(c_id, msg)
+            bot.answer_callback_query(call.id, "Fakt guruhga yuborildi!")
+
+    # 💥 AIZAWA (2 marta otish, Begunohni otsa Aizawa ham o'ladi)
     elif action == "aizawashot":
         if data[1] == "menu":
             c_id = int(data[2])
@@ -634,7 +661,7 @@ def callback_inline(call):
                 else:
                     game['alive'].remove(target_id)
                     game['alive'].remove(call.from_user.id)
-                    bot.send_message(c_id, f"💥 **Aizawa ({shooter})** begunoh {victim}ni otib qo'ydi va **o'zi ham halok bo'ldi!**")
+                    bot.send_message(c_id, f"💥 **Aizawa ({shooter})** begunoh {victim}ni otib qo'ydi va o'z xatosi tufayli **o'zi ham halok bo'ldi!**")
 
     elif action == "join":
         c_id = int(data[1])
@@ -658,7 +685,6 @@ def callback_inline(call):
         if game:
             game['pending_kills'].append(target_id)
             prof = get_user_profile(call.from_user.id)
-            # KIRA DAFTARI 2X KILL ISHLATILSA INVENTARDAN O'CHADI
             if len(game['pending_kills']) >= 2 and "📓 Kira Daftari" in prof['inventory']:
                 prof['inventory'].remove("📓 Kira Daftari")
             bot.answer_callback_query(call.id, "Ism yozildi!")
